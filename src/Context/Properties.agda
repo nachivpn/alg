@@ -41,7 +41,9 @@ wkVar-pres-⊆-trans : (w : Γ ⊆ Γ') (w' : Γ' ⊆ Δ) (x : Var Γ a)
 wkVar-pres-⊆-trans w w' x = refl
 
 -- weakening a variable increments its index
-wkIncr : (x : Var Γ a) → wkVar freshWk[ Γ , b ] x ≡ succ x
+wkIncr : (x : Var Γ a) → wkVar ⊆-fresh[ Γ , b ] x ≡ succ x
 wkIncr zero     = refl
 wkIncr (succ x) = cong succ (cong succ (wkVar-pres-⊆-refl x))
+
+
 

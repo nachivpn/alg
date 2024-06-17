@@ -53,17 +53,24 @@ _⊆_  : Ctx → Ctx → Set
 variable
   w w' w'' : Γ ⊆ Γ'
 
+⊆-keep : Γ ⊆ Γ' → Γ `, a ⊆ Γ' `, a
+⊆-keep r τ v0       = v0
+⊆-keep r τ (succ x) = succ (r τ x)
+
+⊆-drop : Γ ⊆ Γ' → Γ ⊆ Γ' `, a
+⊆-drop r τ x = succ (r τ x)
+
 ⊆-refl[_] : (Γ : Ctx) → Γ ⊆ Γ
-⊆-refl[ Γ ] = λ _ x → x
+⊆-refl[ Γ ] τ x = x
 
 ⊆-refl : Γ ⊆ Γ
 ⊆-refl {Γ} = ⊆-refl[ Γ ]
 
-freshWk[_,_] : (Γ : Ctx) → (a : Ty) → Γ ⊆ (Γ `, a)
-freshWk[ Γ , a ] = λ _ → succ
+⊆-fresh[_,_] : (Γ : Ctx) → (a : Ty) → Γ ⊆ (Γ `, a)
+⊆-fresh[ Γ , a ] = ⊆-drop ⊆-refl[ Γ ]
 
-freshWk : Γ ⊆ (Γ `, a)
-freshWk = freshWk[ _ , _ ]
+⊆-fresh : Γ ⊆ (Γ `, a)
+⊆-fresh = ⊆-fresh[ _ , _ ]
 
 ⊆-trans : Θ ⊆ Δ → Δ ⊆ Γ → Θ ⊆ Γ
 ⊆-trans r2 r1 = λ a v → r1 a (r2 a v)
