@@ -8,6 +8,8 @@ open import Context Ty
 open import Semantics.Presheaf.Base 𝒲 public
 open import Semantics.Presheaf.CartesianClosure 𝒲 public
 
+open import Data.Product using (Σ; _×_; _,_ ; proj₁ ; proj₂)
+
 open import Relation.Binary.PropositionalEquality
   using    (_≡_ ; refl ; cong ; cong₂ ; module ≡-Reasoning ; subst ; subst₂)
   renaming (sym to ≡-sym ; trans to ≡-trans ; isEquivalence to ≡-equiv)
@@ -47,6 +49,10 @@ Var' τ = record
        ; wk-pres-trans = λ w w' x → {!!}
        }
 
+-- TODO: after ε[_]_
+ε[_]-map : {𝒫 𝒬 : Psh} (τ : Ty) → (𝒫 →̇ 𝒬) → ε[ τ ] 𝒫 →̇ ε[ τ ] 𝒬
+ε[_]-map = {!!}
+
 record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   field
     var : Var' τ →̇ 𝒯 τ
@@ -72,9 +78,6 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
                    → wkSub (⊆-trans r r') δ x ≋[ 𝒯 τ ] wkSub r' (wkSub r δ) x
   wkSub-pres-trans r r' δ {τ} x = wk[ 𝒯 τ ]-pres-trans r r' (δ x)
   
-  trimSub : Δ ⊆ Δ' → Sub Γ Δ' → Sub Γ Δ
-  trimSub r δ {τ} = λ x → δ (wkVar r x)
-  
   Sub' : Ctx → Psh
   Sub' Δ = record
             { Fam           = λ Γ → Sub Γ Δ
@@ -90,18 +93,28 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
             ; wk-pres-trans = wkSub-pres-trans
             }
 
-  -- TODO: Fix defn of ◼'s Fam. The current definition is insufficient.
-  -- It can't be any such function, it must be equality (_≋[ 𝒫 ]_) preserving functions.
-  -- See definition of presheaf exponential for style/convention of defining such families.
+  trimSub-fun : Δ ⊆ Δ' → Sub Γ Δ' → Sub Γ Δ
+  trimSub-fun r δ {τ} = λ x → δ (wkVar r x)
+
+  -- TODO: is trimSub a contravariant functor on 𝒲?
+  -- TODO: rename (?) and complete
+  trimSub : Δ ⊆ Δ' → Sub' Δ' →̇ Sub' Δ
+  trimSub r = record
+    { fun     = trimSub-fun r
+    ; pres-≋  = λ p≋p' x → p≋p' (r _ x)
+    ; natural = λ w p x → ≋[ 𝒯 _ ]-refl
+    }
+
+  -- TODO:
   ◼_ : Psh → Psh
   ◼ 𝒫 = record
-         { Fam           = λ Δ → ∀ {Γ : Ctx} → Sub Γ Δ → 𝒫 ₀ Γ {- insufficient -}
-         ; _≋_           = λ {Δ : Ctx} f g → ∀ {Γ : Ctx} (δ : Sub Γ Δ) → f δ ≋[ 𝒫 ] g δ
-         ; ≋-equiv       = {!!}
-         ; wk            = λ r f δ → f (trimSub r δ)
-         ; wk-pres-≋     = λ r f≋g δ → f≋g (trimSub r δ)
-         ; wk-pres-refl  = {!!}
-         ; wk-pres-trans = {!!}
+         { Fam           = λ Δ → Sub' Δ →̇ 𝒫
+         ; _≋_           = _≈̇_
+         ; ≋-equiv       = λ Γ → ≈̇-equiv
+         ; wk            = λ r f → f ∘ trimSub r
+         ; wk-pres-≋     = λ r f≋g → ∘-pres-≈̇-left f≋g (trimSub r)
+         ; wk-pres-refl  = id'-unit-right _
+         ; wk-pres-trans = λ w w' x → {!!}
          }
 
   -- TODO: define after fixing ◼'s definition 
@@ -115,20 +128,36 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   ⊢ₛ-refl = var .apply
 
   ⊢ₛ-trans : Sub Γ Δ →  Sub Δ Δ' → Sub Γ Δ'
-  ⊢ₛ-trans δ δ' {τ} = λ x → μ .apply (δ' x) δ
+  ⊢ₛ-trans δ δ' {τ} = λ x → μ .apply (δ' x) .apply δ
 
-  -- TODO: discuss if laws should be stated entirely using ≈̇
+  -- TODO: all laws should be stated using ≈̇ after definig counit and cojoin of ■
   field
     -- think "substTm"
     μ-lunit : μ {τ} ∘ var ≈̇ substVar
     
     -- think "substTm-pres-refl"
-    μ-runit : {x : Var Γ τ} {t : 𝒯 τ ₀ Γ} → μ .apply t ⊢ₛ-refl ≋[ 𝒯 τ ] t
+    μ-runit : {x : Var Γ τ} {t : 𝒯 τ ₀ Γ} → μ .apply t .apply ⊢ₛ-refl ≋[ 𝒯 τ ] t
 
     -- think "substTm-pres-trans"
     μ-assoc : {x : Var Γ τ} {t : 𝒯 τ ₀ Δ'} {δ : Sub Γ Δ} {δ' : Sub Δ Δ'}
-      → μ .apply (μ .apply t δ') δ ≋[ 𝒯 τ ] μ .apply t (⊢ₛ-trans δ δ')
+      → μ .apply (μ .apply t .apply δ') .apply δ ≋[ 𝒯 τ ] μ .apply t .apply (⊢ₛ-trans δ δ')
 
-  -- TODO: define single variable substitution _[_]
+  extₛ-fun : Sub Γ Δ → 𝒯 τ ₀ Γ → Sub Γ (Δ `, τ)
+  extₛ-fun s t v0       = t
+  extₛ-fun s t (succ x) = s x
+
+  _`,ₛ_ = extₛ-fun
+
+  -- TODO:
+  extₛ : (Sub' Δ ×' 𝒯 τ) →̇ Sub' (Δ `, τ)
+  extₛ = record
+    { fun     = λ { (elem (s , t)) → extₛ-fun s t }
+    ; pres-≋  = {!!}
+    ; natural = {!!}
+    }
+
+  -- TODO:
+  subst1 : (ε[ σ ] 𝒯 τ) ×' 𝒯 σ →̇ 𝒯 τ
+  subst1 = {!!}
   
-  -- TODO: using _[_], define β and η laws 
+  -- TODO: using subst1, define β and η laws
