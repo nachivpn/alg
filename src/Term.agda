@@ -97,7 +97,7 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   trimSub-fun r δ {τ} = λ x → δ (wkVar r x)
 
   -- TODO: is trimSub a contravariant functor on 𝒲?
-  -- TODO: rename (?) and complete
+  -- TODO: rename (?)
   trimSub : Δ ⊆ Δ' → Sub' Δ' →̇ Sub' Δ
   trimSub r = record
     { fun     = trimSub-fun r
@@ -117,9 +117,24 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
          ; wk-pres-trans = λ w w' x → {!!}
          }
 
-  -- TODO: define after fixing ◼'s definition 
+  lookup-fun : Var Δ τ → Sub Γ Δ → 𝒯 τ ₀ Γ
+  lookup-fun x f = f x
+
+  lookup : Var Δ τ → Sub' Δ →̇ 𝒯 τ
+  lookup x = record
+    { fun     = lookup-fun x
+    ; pres-≋  = λ p≋p' → p≋p' x
+    ; natural = λ w p → ≋[ 𝒯 _ ]-refl
+    }
+
+  substVar-fun = lookup
+
   substVar : Var' τ →̇ ◼ (𝒯 τ)
-  substVar = {!!}
+  substVar = record
+    { fun     = lookup
+    ; pres-≋  = λ { refl → ≈̇-refl }
+    ; natural = λ w x → record { proof = λ p → ≋[ 𝒯 _ ]-refl }
+    }
  
   field
     μ       : 𝒯 τ →̇ ◼ (𝒯 τ)
@@ -130,14 +145,30 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   ⊢ₛ-trans : Sub Γ Δ →  Sub Δ Δ' → Sub Γ Δ'
   ⊢ₛ-trans δ δ' {τ} = λ x → μ .apply (δ' x) .apply δ
 
+  ◼-map : {𝒫 𝒬 : Psh} → (𝒫 →̇ 𝒬) → (◼ 𝒫 →̇ ◼ 𝒬)
+  ◼-map f = {!!}
+
+  ◼-ϵ : {𝒫 : Psh} → ◼ 𝒫 →̇ 𝒫
+  ◼-ϵ {𝒫} = record
+    { fun     = λ bp → bp .apply ⊢ₛ-refl
+    ; pres-≋  = λ p≋p' → p≋p' .apply-≋ ⊢ₛ-refl
+    ; natural = {!!}
+    }
+
+  ◼-δ : {𝒫 : Psh} → ◼ 𝒫 →̇ ◼ ◼ 𝒫
+  ◼-δ = {!!}
+
   -- TODO: all laws should be stated using ≈̇ after definig counit and cojoin of ■
   field
     -- think "substTm"
-    μ-lunit : μ {τ} ∘ var ≈̇ substVar
+    μ-lunit : μ ∘ var ≈̇ substVar {τ}
     
     -- think "substTm-pres-refl"
-    μ-runit : {x : Var Γ τ} {t : 𝒯 τ ₀ Γ} → μ .apply t .apply ⊢ₛ-refl ≋[ 𝒯 τ ] t
+    μ-runit : ◼-ϵ ∘ μ ≈̇ id' {𝒯 τ}
 
+    -- TODO: I'm tempted to follow the types and
+    -- redefine μ-assoc as `◼-map μ ≈̇ ◼-δ`, but
+    -- is this even correct? Unroll and check.
     -- think "substTm-pres-trans"
     μ-assoc : {x : Var Γ τ} {t : 𝒯 τ ₀ Δ'} {δ : Sub Γ Δ} {δ' : Sub Δ Δ'}
       → μ .apply (μ .apply t .apply δ') .apply δ ≋[ 𝒯 τ ] μ .apply t .apply (⊢ₛ-trans δ δ')
