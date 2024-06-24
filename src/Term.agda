@@ -146,17 +146,21 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   ⊢ₛ-trans δ δ' {τ} = λ x → μ .apply (δ' x) .apply δ
 
   ◼-map : {𝒫 𝒬 : Psh} → (𝒫 →̇ 𝒬) → (◼ 𝒫 →̇ ◼ 𝒬)
-  ◼-map f = {!!}
+  ◼-map {𝒫} {𝒬} f = record
+    { fun     = f ∘_
+    ; pres-≋  = ∘-pres-≈̇-right f
+    ; natural = λ r p → record { proof = λ δ → ≋[ 𝒬 ]-refl }
+    }
 
   ◼-ϵ : {𝒫 : Psh} → ◼ 𝒫 →̇ 𝒫
   ◼-ϵ {𝒫} = record
     { fun     = λ bp → bp .apply ⊢ₛ-refl
     ; pres-≋  = λ p≋p' → p≋p' .apply-≋ ⊢ₛ-refl
-    ; natural = {!!}
+    ; natural = λ r bp → {!bp .natural r!}
     }
 
   ◼-δ : {𝒫 : Psh} → ◼ 𝒫 →̇ ◼ ◼ 𝒫
-  ◼-δ = {!!}
+  ◼-δ = ?
 
   -- TODO: all laws should be stated using ≈̇ after definig counit and cojoin of ■
   field
