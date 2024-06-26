@@ -24,20 +24,7 @@ Var' τ = record
           ; wk-pres-refl  = wkVar-pres-refl
           ; wk-pres-trans = wkVar-pres-trans
           }
-  where
-  wkVar-pres-refl : (x : Var Γ τ) → wkVar ⊆-refl x ≡ x
-  wkVar-pres-refl x = refl
 
-  wkVar-pres-trans : (r : Γ ⊆ Γ') (r' : Γ' ⊆ Γ'') (x : Var Γ τ)
-    → wkVar (⊆-trans r r') x ≡ wkVar r' (wkVar r x)
-  wkVar-pres-trans r r' x = refl
-
--- TODO: completing proof of `wk-pres-refl` below requires
--- that `⊆-keep ⊆-refl ≡ ⊆-refl`, which doesn't appear
--- provable without extensionality. does this mean
--- we should already switch to OPEs (where this holds)?
--- Similarly, to prove `wk-pres-trans`, we need
--- `⊆-keep (⊆-trans r r') ≡ ⊆-trans (⊆-keep r) (⊆-keep r')`
 ε[_]_ : Ty → Psh → Psh
 ε[ τ ] 𝒫 = record
        { Fam           = λ Γ → 𝒫 ₀ (Γ `, τ)
@@ -45,13 +32,18 @@ Var' τ = record
        ; ≋-equiv       = λ Γ → Psh.≋-equiv 𝒫 (Γ `, τ)
        ; wk            = λ r → wk[ 𝒫 ] (⊆-keep r)
        ; wk-pres-≋     = λ r → wk[ 𝒫 ]-pres-≋ (⊆-keep r)
-       ; wk-pres-refl  = λ x → {!!}
-       ; wk-pres-trans = λ w w' x → {!!}
+       ; wk-pres-refl  = λ x → wk[ 𝒫 ]-pres-refl x
+       ; wk-pres-trans = λ w w' x → ≋[ 𝒫 ]-trans
+         (≋[ 𝒫 ]-reflexive (cong (λ r → wk[ 𝒫 ] r x) (⊆-keep-pres-trans w w')))
+         (wk[ 𝒫 ]-pres-trans (⊆-keep w) (⊆-keep w') x)
        }
 
--- TODO: after ε[_]_
 ε[_]-map : {𝒫 𝒬 : Psh} (τ : Ty) → (𝒫 →̇ 𝒬) → ε[ τ ] 𝒫 →̇ ε[ τ ] 𝒬
-ε[_]-map = {!!}
+ε[_]-map τ f = record
+  { fun     = f .apply
+  ; pres-≋  = f .apply-≋
+  ; natural = λ w p → f .natural (⊆-keep w) p
+  }
 
 record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   field
@@ -72,7 +64,7 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   wkSub r δ {τ} = λ x → wk[ 𝒯 τ ] r (δ x)
 
   wkSub-pres-refl : (δ : Sub Γ Δ) {τ : Ty} (x : Var Δ τ) → wkSub ⊆-refl δ x ≋[ 𝒯 τ ] δ x
-  wkSub-pres-refl δ {τ} x = wk[ 𝒯 τ ]-pres-refl _
+  wkSub-pres-refl δ {τ} x = wk[ 𝒯 τ ]-pres-refl (δ x)
 
   wkSub-pres-trans : (r : Γ ⊆ Γ') (r' : Γ' ⊆ Γ'') (δ : Sub Γ Δ) {τ : Ty} (x : Var Δ τ)               
                    → wkSub (⊆-trans r r') δ x ≋[ 𝒯 τ ] wkSub r' (wkSub r δ) x
@@ -101,11 +93,16 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   trimSub : Δ ⊆ Δ' → Sub' Δ' →̇ Sub' Δ
   trimSub r = record
     { fun     = trimSub-fun r
-    ; pres-≋  = λ p≋p' x → p≋p' (r _ x)
-    ; natural = λ w p x → ≋[ 𝒯 _ ]-refl
+    ; pres-≋  = λ p≋p' x → p≋p' (wkVar r x)
+    ; natural = λ _w _p _x → ≋[ 𝒯 _ ]-refl
     }
 
-  -- TODO:
+  trimSub-pres-refl : trimSub ⊆-refl ≈̇ id'[ Sub' Δ ]
+  trimSub-pres-refl = record { proof = λ δ x → ≋[ 𝒯 _ ]-reflexive (cong δ (wkVar-pres-refl x)) }
+
+  trimSub-pres-trans : (r : Δ ⊆ Δ') (r' : Δ' ⊆ Δ'') → trimSub (⊆-trans r r') ≈̇ trimSub r ∘ trimSub r'
+  trimSub-pres-trans r r' = record { proof = λ δ x → ≋[ 𝒯 _ ]-reflexive (cong δ (wkVar-pres-trans r r' x)) }
+
   ◼_ : Psh → Psh
   ◼ 𝒫 = record
          { Fam           = λ Δ → Sub' Δ →̇ 𝒫
@@ -113,8 +110,12 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
          ; ≋-equiv       = λ Γ → ≈̇-equiv
          ; wk            = λ r f → f ∘ trimSub r
          ; wk-pres-≋     = λ r f≋g → ∘-pres-≈̇-left f≋g (trimSub r)
-         ; wk-pres-refl  = id'-unit-right _
-         ; wk-pres-trans = λ w w' x → {!!}
+         ; wk-pres-refl  = λ f → ≈̇-trans
+           (∘-pres-≈̇-right f trimSub-pres-refl)
+           (id'-unit-right (Sub' _) f)
+         ; wk-pres-trans = λ r r' f → ≈̇-trans
+           (∘-pres-≈̇-right f (trimSub-pres-trans r r'))
+           (≈̇-sym (∘-assoc f (trimSub r) (trimSub r')))
          }
 
   lookup-fun : Var Δ τ → Sub Γ Δ → 𝒯 τ ₀ Γ
@@ -123,17 +124,17 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   lookup : Var Δ τ → Sub' Δ →̇ 𝒯 τ
   lookup x = record
     { fun     = lookup-fun x
-    ; pres-≋  = λ p≋p' → p≋p' x
-    ; natural = λ w p → ≋[ 𝒯 _ ]-refl
+    ; pres-≋  = λ δ≋δ' → δ≋δ' x
+    ; natural = λ w δ → ≋[ 𝒯 _ ]-refl
     }
 
   substVar-fun = lookup
 
   substVar : Var' τ →̇ ◼ (𝒯 τ)
   substVar = record
-    { fun     = lookup
-    ; pres-≋  = λ { refl → ≈̇-refl }
-    ; natural = λ w x → record { proof = λ p → ≋[ 𝒯 _ ]-refl }
+    { fun     = substVar-fun
+    ; pres-≋  = λ p≡p' → record { proof = λ δ → ≋[ 𝒯 _ ]-reflexive (cong δ p≡p') }
+    ; natural = λ w x → record { proof = λ _δ → ≋[ 𝒯 _ ]-refl }
     }
  
   field
@@ -155,14 +156,26 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
   ◼-ϵ : {𝒫 : Psh} → ◼ 𝒫 →̇ 𝒫
   ◼-ϵ {𝒫} = record
     { fun     = λ bp → bp .apply ⊢ₛ-refl
-    ; pres-≋  = λ p≋p' → p≋p' .apply-≋ ⊢ₛ-refl
-    ; natural = λ r bp → {!bp .natural r!}
+    ; pres-≋  = λ bp≋bp' → bp≋bp' .apply-≋ ⊢ₛ-refl
+    ; natural = λ r bp → ≋[ 𝒫 ]-trans (bp .natural r ⊢ₛ-refl) (bp .apply-≋ (var .natural r))
     }
 
+  -- pricey!
   ◼-δ : {𝒫 : Psh} → ◼ 𝒫 →̇ ◼ ◼ 𝒫
-  ◼-δ = ?
+  ◼-δ {𝒫} = record
+    { fun     = λ bp → record
+      { fun     = λ δ → record
+        { fun     = λ δ' → bp .apply (⊢ₛ-trans δ' δ)
+        ; pres-≋  = λ δ≋δ' → bp .apply-≋ (λ x → μ .apply (δ x) .apply-≋ δ≋δ')
+        ; natural = λ r δ' → ≋[ 𝒫 ]-trans
+          (bp .natural r (⊢ₛ-trans δ' δ))
+          (bp .apply-≋ λ x → μ .apply (δ x) .natural r δ') }
+      ; pres-≋  = λ δ≋δ' → record { proof = λ δ → bp .apply-≋ (λ x → μ .apply-≋ (δ≋δ' x) .apply-≋ δ) }
+      ; natural = λ r δ → record { proof = λ δ' → bp .apply-≋ (λ x → μ .natural r (δ x) .apply-≋ δ') } }
+    ; pres-≋  = λ bp≋bp' → record { proof = λ δ → record { proof = λ δ' → bp≋bp' .apply-≋ (⊢ₛ-trans δ' δ) } }
+    ; natural = λ r bp → record { proof = λ δ → record { proof = λ δ' → ≋[ 𝒫 ]-refl } }
+    }
 
-  -- TODO: all laws should be stated using ≈̇ after definig counit and cojoin of ■
   field
     -- think "substTm"
     μ-lunit : μ ∘ var ≈̇ substVar {τ}
@@ -170,29 +183,16 @@ record TmAlg (𝒯 : Ty → Psh) : Set₁ where
     -- think "substTm-pres-refl"
     μ-runit : ◼-ϵ ∘ μ ≈̇ id' {𝒯 τ}
 
-    -- TODO: I'm tempted to follow the types and
-    -- redefine μ-assoc as `◼-map μ ≈̇ ◼-δ`, but
-    -- is this even correct? Unroll and check.
     -- think "substTm-pres-trans"
     μ-assoc : {x : Var Γ τ} {t : 𝒯 τ ₀ Δ'} {δ : Sub Γ Δ} {δ' : Sub Δ Δ'}
       → μ .apply (μ .apply t .apply δ') .apply δ ≋[ 𝒯 τ ] μ .apply t .apply (⊢ₛ-trans δ δ')
 
-  extₛ-fun : Sub Γ Δ → 𝒯 τ ₀ Γ → Sub Γ (Δ `, τ)
-  extₛ-fun s t v0       = t
-  extₛ-fun s t (succ x) = s x
-
-  _`,ₛ_ = extₛ-fun
-
-  -- TODO:
-  extₛ : (Sub' Δ ×' 𝒯 τ) →̇ Sub' (Δ `, τ)
-  extₛ = record
-    { fun     = λ { (elem (s , t)) → extₛ-fun s t }
-    ; pres-≋  = {!!}
-    ; natural = {!!}
-    }
+    -- this version is pricey!
+    --μ-assoc : ◼-map μ ∘ μ ≈̇ ◼-δ ∘ μ {τ}
 
   -- TODO:
   subst1 : (ε[ σ ] 𝒯 τ) ×' 𝒯 σ →̇ 𝒯 τ
   subst1 = {!!}
   
   -- TODO: using subst1, define β and η laws
+

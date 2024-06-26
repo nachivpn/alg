@@ -12,16 +12,66 @@ open import Semantics.Kripke.Frame
 private
   variable
     a b c d : Ty
-  
-⊆-refl-unit-left : (w : Γ' ⊆ Γ) → ⊆-trans ⊆-refl w ≡ w
-⊆-refl-unit-left w = refl
 
-⊆-refl-unit-right : (w : Γ' ⊆ Γ) → ⊆-trans w ⊆-refl  ≡ w
-⊆-refl-unit-right w = refl
+--
+-- ⊆-drop properties
+--
+
+⊆-drop-nat : (w : Γ ⊆ Γ') (x : Var Γ a)  → wkVar (⊆-drop {a = b} w) x ≡ succ (wkVar w x)
+⊆-drop-nat (w `, x) v0       = refl
+⊆-drop-nat (w `, _) (succ x) = ⊆-drop-nat w x
+
+-- TODO: rename!
+lemma1 : (r : Γ ⊆ Γ') (r' : Γ' ⊆ Γ'') (x : Var Γ'' a)
+  → ⊆-trans (⊆-drop r) (r' `, x) ≡ ⊆-trans r r'
+lemma1 [] r' x = refl
+lemma1 (r `, x₁) r' x = cong (_`, _) (lemma1 r r' x)
+
+--TODO: rename!
+lemma2 : (w : Γ ⊆ Γ') (w' : Γ' ⊆ Γ'')
+  → ⊆-drop {a = a} (⊆-trans w w') ≡ ⊆-trans w (⊆-drop w')
+lemma2 [] w' = refl
+lemma2 (w `, x) w' = cong₂ _`,_ (lemma2 w w') (≡-sym (⊆-drop-nat w' x))
+
+--TODO: rename!
+lemma3 : (w : Γ ⊆ Γ') (w' : Γ' ⊆ Γ'')
+  → ⊆-drop {a = a} (⊆-trans w w') ≡ ⊆-trans (⊆-drop w) (⊆-keep w')
+lemma3 w w' = ≡-trans (lemma2 w w') (≡-sym (lemma1 w (⊆-drop w') zero))
+
+--
+-- Var is a presheaf (indexed by below defined category 𝒲)
+--
+
+mutual
+
+  wkIncr : (x : Var Γ a) → wkVar ⊆-fresh[ Γ , b ] x ≡ succ x
+  wkIncr x = ≡-trans (⊆-drop-nat ⊆-refl x) (cong succ (wkVar-pres-refl x))
+
+  wkVar-pres-refl : (x : Var Γ a) → wkVar ⊆-refl x ≡ x
+  wkVar-pres-refl v0       = refl
+  wkVar-pres-refl (succ x) = wkIncr x
+
+wkVar-pres-trans : (r : Γ ⊆ Γ') (r' : Γ' ⊆ Δ) (x : Var Γ a)
+  → wkVar (⊆-trans r r') x ≡ wkVar r' (wkVar r x)
+wkVar-pres-trans (r `, x₁) r' v0       = refl
+wkVar-pres-trans (r `, x₁) r' (succ x) = wkVar-pres-trans r r' x
+
+--
+-- Ctx and _⊆_ form an IFrame (category) 𝒲
+--
+
+⊆-refl-unit-left : (r : Γ' ⊆ Γ) → ⊆-trans ⊆-refl r ≡ r
+⊆-refl-unit-left []       = refl
+⊆-refl-unit-left (r `, x) = cong (_`, _) (≡-trans (lemma1 ⊆-refl r x) (⊆-refl-unit-left r))
+
+⊆-refl-unit-right : (r : Γ' ⊆ Γ) → ⊆-trans r ⊆-refl ≡ r
+⊆-refl-unit-right []       = refl
+⊆-refl-unit-right (r `, x) = cong₂ _`,_ (⊆-refl-unit-right r) (wkVar-pres-refl x)
 
 ⊆-trans-assoc : {Γ1 Γ2 Γ3 Γ4 : Ctx} → (w3 : Γ4 ⊆ Γ3) (w2 : Γ3 ⊆ Γ2) → (w1 : Γ2 ⊆ Γ1)
   → ⊆-trans (⊆-trans w3 w2) w1 ≡ ⊆-trans w3 (⊆-trans w2 w1)
-⊆-trans-assoc w3 w2 w1 = refl
+⊆-trans-assoc []        w2 w1 = refl
+⊆-trans-assoc (w3 `, x) w2 w1 = cong₂ _`,_ (⊆-trans-assoc w3 w2 w1) (≡-sym (wkVar-pres-trans w2 w1 x))
 
 𝒲 : IFrame Ctx _⊆_
 𝒲 = record
@@ -32,18 +82,17 @@ private
       ; ⊆-refl-unit-left  = ⊆-refl-unit-right
       }
 
-wkVar-pres-⊆-refl : (x : Var Γ a) → wkVar ⊆-refl x ≡ x
-wkVar-pres-⊆-refl v0       = refl
-wkVar-pres-⊆-refl (succ x) = cong succ (wkVar-pres-⊆-refl x)
+--
+-- ⊆-keep is an endofunctor on 𝒲
+--
 
-wkVar-pres-⊆-trans : (w : Γ ⊆ Γ') (w' : Γ' ⊆ Δ) (x : Var Γ a)
-  → wkVar (⊆-trans w w') x ≡ wkVar w' (wkVar w x)
-wkVar-pres-⊆-trans w w' x = refl
+⊆-keep-pres-refl : ⊆-keep ⊆-refl ≡ ⊆-refl[ Γ `, a ]
+⊆-keep-pres-refl = refl
 
--- weakening a variable increments its index
-wkIncr : (x : Var Γ a) → wkVar ⊆-fresh[ Γ , b ] x ≡ succ x
-wkIncr zero     = refl
-wkIncr (succ x) = cong succ (cong succ (wkVar-pres-⊆-refl x))
+⊆-keep-pres-trans : (r : Γ ⊆ Γ') (r' : Γ' ⊆ Γ'') → ⊆-keep {a = a} (⊆-trans r r') ≡ ⊆-trans (⊆-keep r) (⊆-keep r')
+⊆-keep-pres-trans []       r' = refl
+⊆-keep-pres-trans (r `, x) r' = cong (_`, zero) (cong₂ _`,_ (lemma3 r r') (≡-sym (⊆-drop-nat r' x )))
+
 
 
 

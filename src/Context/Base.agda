@@ -47,21 +47,31 @@ pattern v2 = succ v1
 -- Renamings
 -------------
 
-_⊆_  : Ctx → Ctx → Set
-Γ ⊆ Γ' = (a : Ty) → Var Γ a → Var Γ' a
+data _⊆_  : Ctx → Ctx → Set where
+  []   : [] ⊆ Γ
+  _`,_ : Γ ⊆ Γ' → Var Γ' a → (Γ `, a) ⊆ Γ'
 
 variable
   w w' w'' : Γ ⊆ Γ'
 
-⊆-keep : Γ ⊆ Γ' → Γ `, a ⊆ Γ' `, a
-⊆-keep r τ v0       = v0
-⊆-keep r τ (succ x) = succ (r τ x)
+wkVar : Γ ⊆ Γ' → Var Γ a → Var Γ' a
+wkVar (r `, x) v0       = x
+wkVar (r `, x) (succ v) = wkVar r v
+
+⊆-trans : Θ ⊆ Δ → Δ ⊆ Γ → Θ ⊆ Γ
+⊆-trans []        r1 = []
+⊆-trans (r2 `, x) r1 = (⊆-trans r2 r1) `, (wkVar r1 x)
 
 ⊆-drop : Γ ⊆ Γ' → Γ ⊆ Γ' `, a
-⊆-drop r τ x = succ (r τ x)
+⊆-drop []       = []
+⊆-drop (r `, x) = ⊆-drop r `, succ x
+
+⊆-keep : Γ ⊆ Γ' → Γ `, a ⊆ Γ' `, a
+⊆-keep r = ⊆-drop r `, v0
 
 ⊆-refl[_] : (Γ : Ctx) → Γ ⊆ Γ
-⊆-refl[ Γ ] τ x = x
+⊆-refl[ [] ]     = []
+⊆-refl[ Γ `, a ] = ⊆-drop ⊆-refl[ Γ ] `, v0
 
 ⊆-refl : Γ ⊆ Γ
 ⊆-refl {Γ} = ⊆-refl[ Γ ]
@@ -71,9 +81,3 @@ variable
 
 ⊆-fresh : Γ ⊆ (Γ `, a)
 ⊆-fresh = ⊆-fresh[ _ , _ ]
-
-⊆-trans : Θ ⊆ Δ → Δ ⊆ Γ → Θ ⊆ Γ
-⊆-trans r2 r1 = λ a v → r1 a (r2 a v)
-
-wkVar : Γ ⊆ Γ' → Var Γ a → Var Γ' a
-wkVar r v = r _ v 
