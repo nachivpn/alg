@@ -52,7 +52,7 @@ data _⊆_  : Ctx → Ctx → Set where
   _`,_ : Γ ⊆ Γ' → Var Γ' a → (Γ `, a) ⊆ Γ'
 
 variable
-  w w' w'' : Γ ⊆ Γ'
+  r r' r'' : Γ ⊆ Γ'
 
 wkVar : Γ ⊆ Γ' → Var Γ a → Var Γ' a
 wkVar (r `, x) v0       = x
