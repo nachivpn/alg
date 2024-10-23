@@ -30,7 +30,7 @@ Sub Γ Δ = Γ ⊢ₛ Δ
 
 data _≈ₛ_ : Sub Γ Δ → Sub Γ Δ → Set where
   []   : [] ≈ₛ [] {Γ}
-  _`,_ : {δ δ' : Sub Γ Δ} {t t' : Tm Γ τ} → δ ≈ₛ δ' → t ≈ t' → (δ `, t) ≈ₛ (δ' `, t') 
+  _`,_ : {δ δ' : Sub Γ Δ} {t t' : Tm Γ τ} → δ ≈ₛ δ' → t ≈ t' → (δ `, t) ≈ₛ (δ' `, t')
 
 wkSub : Γ ⊆ Γ' → Sub Γ Δ → Sub Γ' Δ
 wkSub r []       = []
@@ -89,7 +89,7 @@ Sub' Δ = record
           ; wk-pres-≋     = wkSub-pres-≈ₛ
           ; wk-pres-refl  = wkSub-pres-refl
           ; wk-pres-trans = wkSub-pres-trans
-          }          
+          }
 
 wkSub-unit-right : (r : Γ ⊆ Γ') → wkSub r ⊢ₛ-refl[ Γ ] ≈ₛ ⊆-to-ₛ⊣ r
 wkSub-unit-right []           = ≈ₛ-refl
@@ -208,6 +208,9 @@ trimSub-unit-right (r `, x) = trimSub-unit-right r `, lookup-unit-right x
     ; natural = λ r p → record { proof = λ δ → ≋[ 𝒬 ]-refl }
     }
 
+◼-map-pres-≈̇ : {𝒫 𝒬 : Psh} {f g : 𝒫 →̇ 𝒬} → f ≈̇ g → ◼-map f ≈̇ ◼-map g
+◼-map-pres-≈̇ f≈̇g = record { proof = ∘-pres-≈̇-left f≈̇g }
+
 ◼-ϵ : {𝒫 : Psh} → ◼ 𝒫 →̇ 𝒫
 ◼-ϵ {𝒫} = record
     { fun     = λ bp → bp .apply ⊢ₛ-refl
@@ -232,31 +235,97 @@ substVar = record
     }
 
 module Action
-  (μ  : {τ : Ty} → 𝒯 τ →̇ ◼ (𝒯 τ)) where
+  (μ  : {τ : Ty} → 𝒯 τ →̇ ◼ (𝒯 τ))
+    where
 
   ⊢ₛ-trans : Sub Γ Δ → Sub Δ Δ' → Sub Γ Δ'
   ⊢ₛ-trans δ []        = []
   ⊢ₛ-trans δ (δ' `, t) = ⊢ₛ-trans δ δ' `, μ .apply t .apply δ
 
+  ⊢ₛ-trans-pres-≈-left : {γ γ' : Sub Γ Δ} → γ ≈ₛ γ' → (δ : Sub Δ Δ') → ⊢ₛ-trans γ δ ≈ₛ ⊢ₛ-trans γ' δ
+  ⊢ₛ-trans-pres-≈-left γ≈γ' []       = []
+  ⊢ₛ-trans-pres-≈-left γ≈γ' (δ `, t) = (⊢ₛ-trans-pres-≈-left γ≈γ' δ) `, μ .apply t .apply-≋ γ≈γ'
+
+  ⊢ₛ-trans-pres-≈-right : (γ : Sub Γ Δ) {δ δ' : Sub Δ Δ'} → δ ≈ₛ δ' → ⊢ₛ-trans γ δ ≈ₛ ⊢ₛ-trans γ δ'
+  ⊢ₛ-trans-pres-≈-right γ []             = []
+  ⊢ₛ-trans-pres-≈-right γ (δ≈δ' `, t≈t') = ⊢ₛ-trans-pres-≈-right γ δ≈δ' `, μ .apply-≋ t≈t' .apply-≋ γ
+
+  ⊢ₛ-∘ : Sub Δ Δ' → Sub Γ Δ → Sub Γ Δ'
+  ⊢ₛ-∘ δ' δ = ⊢ₛ-trans δ δ'
+
+  ⊢ₛ-∘-pres-≈-right : (δ : Sub' Δ ₀ Γ) → Pres-≋ (Sub' Γ) (Sub' Δ) (⊢ₛ-∘ δ)
+  ⊢ₛ-∘-pres-≈-right δ γ≈γ' = ⊢ₛ-trans-pres-≈-left γ≈γ' δ
+
+  ⊢ₛ-trans-pres-≈ : {γ γ' : Sub Γ Δ} {δ δ' : Sub Δ Δ'} → γ ≈ₛ γ' → δ ≈ₛ δ' → ⊢ₛ-trans γ δ ≈ₛ ⊢ₛ-trans γ' δ'
+  ⊢ₛ-trans-pres-≈ γ≈γ' δ≈δ' = ≈ₛ-trans (⊢ₛ-trans-pres-≈-left γ≈γ' _) (⊢ₛ-trans-pres-≈-right _ δ≈δ')
+
+  ⊢ₛ-∘-natural : (δ : Sub' Δ ₀ Γ) → Natural (Sub' Γ) (Sub' Δ) (⊢ₛ-∘ δ)
+  ⊢ₛ-∘-natural []       w γ = []
+  ⊢ₛ-∘-natural (δ `, t) w γ = (⊢ₛ-∘-natural δ w γ) `, μ .apply t .natural w γ
+
+  μₛ-fun : Sub' Δ ₀ Γ → (◼ Sub' Δ) ₀ Γ
+  μₛ-fun δ = record
+      { fun     = ⊢ₛ-∘ δ
+      ; pres-≋  = ⊢ₛ-∘-pres-≈-right δ
+      ; natural = ⊢ₛ-∘-natural δ
+      }
+
+  μₛ-pres-≋ : Pres-≋ (Sub' Δ) (◼ Sub' Δ) μₛ-fun
+  μₛ-pres-≋ δ≋δ' = record { proof = λ γ → ⊢ₛ-trans-pres-≈-right γ δ≋δ' }
+
+  μₛ-natural : Natural (Sub' Δ) (◼ Sub' Δ) μₛ-fun
+  μₛ-natural w δ = record { proof = λ γ' → μₛ-natural-go w δ γ' }
+    where
+    μₛ-natural-go : (w : Γ ⊆ Γ') (δ : Sub Γ Δ) (γ' : Sub Γ'' Γ') → ⊢ₛ-∘ δ (trimSub-fun w γ') ≈ₛ ⊢ₛ-∘ (wkSub w δ) γ'
+    μₛ-natural-go w []       γ' = []
+    μₛ-natural-go w (δ `, x) γ' = (μₛ-natural-go w δ γ') `, μ .natural w x .apply-≋ γ'
+
+  -- applying any substitution to a given substitution (by composing them)
+  μₛ : Sub' Δ →̇ ◼ (Sub' Δ)
+  μₛ = record
+    { fun     = μₛ-fun
+    ; pres-≋  = μₛ-pres-≋
+    ; natural = μₛ-natural
+    }
+
+  -- coherence between lookup and applying a substitution
+  μ-lookup-coh : (x : Var Γ τ) → μ ∘ lookup x ≈̇ ◼-map (lookup x) ∘ μₛ
+  μ-lookup-coh x = record { proof = λ δ → record { proof = λ δ' → μ-lookup-coh-go x δ δ' } }
+    where
+    μ-lookup-coh-go : (x : Var Γ τ) (γ : Sub Γ' Γ) (γ' : Sub Δ Γ')
+      → μ .apply (lookup-fun x γ) .apply γ' ≈ substVar .apply x .apply (⊢ₛ-∘ γ γ')
+    μ-lookup-coh-go zero (γ `, x) γ'      = ≈-refl
+    μ-lookup-coh-go (succ x') (γ `, x) γ' = μ-lookup-coh-go x' γ γ'
+
+  -- coherence between trimming a substitution and applying it
+  μₛ-trimSub-coh : (w : Δ ⊆ Δ') → μₛ ∘ trimSub w ≈̇ ◼-map (trimSub w) ∘ μₛ
+  μₛ-trimSub-coh w = record { proof = λ δ' → record { proof = λ γ → μₛ-trimSub-coh-go w δ' γ } }
+    where
+    μₛ-trimSub-coh-go : (w : Δ ⊆ Δ') (δ' : Sub Γ Δ') (γ : Sub Γ' Γ)
+      → ⊢ₛ-∘ (trimSub-fun w δ') γ ≈ₛ trimSub-fun w (⊢ₛ-∘ δ' γ)
+    μₛ-trimSub-coh-go []       δ' γ = []
+    μₛ-trimSub-coh-go (r `, x) δ' γ = (μₛ-trimSub-coh-go r δ' γ) `, μ-lookup-coh x .apply-≋ δ' .apply-≋ γ
+
   ◼-δ : {𝒫 : Psh} → ◼ 𝒫 →̇ ◼ ◼ 𝒫
   ◼-δ {𝒫} = record
     { fun     = λ bp → record
-      { fun     = λ δ → record
-        { fun     = λ δ' → bp .apply (⊢ₛ-trans δ' δ)
-        ; pres-≋  = λ δ'≋γ' → bp .apply-≋ {!!}
-        ; natural = λ r δ' → ≋[ 𝒫 ]-trans (bp .natural r (⊢ₛ-trans δ' δ)) (bp .apply-≋ {!!})
-        }
-      ; pres-≋  = λ δ≋γ → record { proof = λ δ' → bp .apply-≋ {!!} }
-      ; natural = λ r δ' → record { proof = {!!} } }
-    ; pres-≋  = λ bp≋bp' → record { proof = λ δ → record { proof = λ δ' → bp≋bp' .apply-≋ (⊢ₛ-trans δ' δ) } }
-    ; natural = λ r bp → record { proof = λ p → record { proof = λ p₁ → bp .apply-≋ {!!} } } }
-  
+      { fun     = λ δ → ◼-map bp .apply (μₛ .apply δ)
+      ; pres-≋  = λ δ≋δ' → ◼-map bp .apply-≋ (μₛ .apply-≋ δ≋δ')
+      ; natural = λ w δ → ≋[ ◼ 𝒫 ]-trans (◼-map bp .natural w (μₛ .apply δ)) (◼-map bp .apply-≋ (μₛ .natural w δ))
+      }
+    ; pres-≋  = λ p≋p' → record { proof = λ δ → ◼-map-pres-≈̇ p≋p' .apply-≋ (μₛ .apply δ) }
+    --
+    -- TODO: revisit; what's goin on here?
+    --
+    ; natural = λ w bp → record { proof = λ δ → record { proof = λ γ → bp .apply-≋ (μₛ-trimSub-coh w .apply-≋ δ .apply-≋ γ ) } }
+    }
+
   record SubLaws : Set₁ where
-  
+
    field
     -- think "substTm (var x) δ = lookup x δ"
     μ-lunit : μ ∘ var ≈̇ substVar {τ}
-    
+
     -- think "substTm-pres-refl"
     μ-runit : ◼-ϵ ∘ μ ≈̇ id' {𝒯 τ}
 
