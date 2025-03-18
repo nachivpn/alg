@@ -7,7 +7,7 @@ open import Relation.Binary.PropositionalEquality
   
 open import Context.Base Ty
 
-open import Semantics.Kripke.Frame
+open import Frame.IFrame
 
 private
   variable
@@ -60,13 +60,13 @@ wkVar-pres-trans (r `, x₁) r' (succ x) = wkVar-pres-trans r r' x
 -- Ctx and _⊆_ form an IFrame (category) 𝒲
 --
 
-⊆-refl-unit-left : (r : Γ' ⊆ Γ) → ⊆-trans ⊆-refl r ≡ r
-⊆-refl-unit-left []       = refl
-⊆-refl-unit-left (r `, x) = cong (_`, _) (≡-trans (lemma1 ⊆-refl r x) (⊆-refl-unit-left r))
+⊆-trans-unit-left : (r : Γ' ⊆ Γ) → ⊆-trans ⊆-refl r ≡ r
+⊆-trans-unit-left []       = refl
+⊆-trans-unit-left (r `, x) = cong (_`, _) (≡-trans (lemma1 ⊆-refl r x) (⊆-trans-unit-left r))
 
-⊆-refl-unit-right : (r : Γ' ⊆ Γ) → ⊆-trans r ⊆-refl ≡ r
-⊆-refl-unit-right []       = refl
-⊆-refl-unit-right (r `, x) = cong₂ _`,_ (⊆-refl-unit-right r) (wkVar-pres-refl x)
+⊆-trans-unit-right : (r : Γ' ⊆ Γ) → ⊆-trans r ⊆-refl ≡ r
+⊆-trans-unit-right []       = refl
+⊆-trans-unit-right (r `, x) = cong₂ _`,_ (⊆-trans-unit-right r) (wkVar-pres-refl x)
 
 ⊆-trans-assoc : {Γ1 Γ2 Γ3 Γ4 : Ctx} → (w3 : Γ4 ⊆ Γ3) (w2 : Γ3 ⊆ Γ2) → (w1 : Γ2 ⊆ Γ1)
   → ⊆-trans (⊆-trans w3 w2) w1 ≡ ⊆-trans w3 (⊆-trans w2 w1)
@@ -75,11 +75,11 @@ wkVar-pres-trans (r `, x₁) r' (succ x) = wkVar-pres-trans r r' x
 
 𝒲 : IFrame Ctx _⊆_
 𝒲 = record
-      { ⊆-trans           = ⊆-trans
-      ; ⊆-trans-assoc     = ⊆-trans-assoc
-      ; ⊆-refl            = ⊆-refl
-      ; ⊆-refl-unit-right = ⊆-refl-unit-left
-      ; ⊆-refl-unit-left  = ⊆-refl-unit-right
+      { ⊆-trans            = ⊆-trans
+      ; ⊆-trans-assoc      = ⊆-trans-assoc
+      ; ⊆-refl             = ⊆-refl
+      ; ⊆-trans-unit-right = ⊆-trans-unit-right
+      ; ⊆-trans-unit-left  = ⊆-trans-unit-left
       }
 
 --

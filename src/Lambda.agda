@@ -5,8 +5,8 @@ module Lambda where
 open import Type public
 open import Context Ty public
 
-open import Semantics.Presheaf.Base 𝒲 public
-open import Semantics.Presheaf.CartesianClosure 𝒲 public
+open import Presheaf.Base 𝒲 public
+open import Presheaf.CartesianClosure 𝒲 public
 
 open import Data.Product using (Σ; _×_; _,_ ; proj₁ ; proj₂)
 
