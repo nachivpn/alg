@@ -10,6 +10,7 @@ open import Relation.Binary.PropositionalEquality
   using    (_≡_ ; cong ; cong₂ ; module ≡-Reasoning ; subst ; subst₂)
   renaming (refl to ≡-refl ; sym to ≡-sym ; trans to ≡-trans ; isEquivalence to ≡-equiv)
 
+
 module Substitution
   (𝒯 : Ty → Psh)
   (𝒯-alg : LambdaAlgebra 𝒯)
@@ -31,6 +32,9 @@ Sub Γ Δ = Γ ⊢ₛ Δ
 data _≈ₛ_ : Sub Γ Δ → Sub Γ Δ → Set where
   []   : [] ≈ₛ [] {Γ}
   _`,_ : {δ δ' : Sub Γ Δ} {t t' : Tm Γ τ} → δ ≈ₛ δ' → t ≈ t' → (δ `, t) ≈ₛ (δ' `, t')
+
+`,-pres-≈ₛ-left  : {δ δ' : Γ ⊢ₛ Δ} → δ ≈ₛ δ' → (t : Tm Γ τ) → (δ `, t) ≈ₛ (δ' `, t)
+`,-pres-≈ₛ-left δ≈δ' t = δ≈δ' `, ≈-refl
 
 wkSub : Γ ⊆ Γ' → Sub Γ Δ → Sub Γ' Δ
 wkSub r []       = []
@@ -213,7 +217,7 @@ trimSub-unit-right (r `, x) = trimSub-unit-right r `, lookup-unit-right x
 ◼-ϵ : {𝒫 : Psh} → ◼ 𝒫 →̇ 𝒫
 ◼-ϵ {𝒫} = record
     { fun     = λ bp → bp .apply ⊢ₛ-refl
-    ; pres-≋  = λ bp≋bp' → apply-≈̇ bp≋bp' ⊢ₛ-refl 
+    ; pres-≋  = λ bp≋bp' → apply-≈̇ bp≋bp' ⊢ₛ-refl
     ; natural = λ r bp → let open EqReasoning ≋[ 𝒫 ]-setoid in begin
       wk[ 𝒫 ] r (bp .apply ⊢ₛ-refl)
         ≈⟨ bp .natural r ⊢ₛ-refl ⟩
@@ -221,7 +225,8 @@ trimSub-unit-right (r `, x) = trimSub-unit-right r `, lookup-unit-right x
         ≈⟨ bp .apply-≋ (wkSub-unit-right r) ⟩
       bp .apply (⊆-to-ₛ⊣ r)
         ≈˘⟨ bp .apply-≋ (trimSub-unit-right r) ⟩
-      bp .apply (trimSub-fun r ⊢ₛ-refl) ∎
+      bp .apply (trimSub-fun r ⊢ₛ-refl)
+        ∎
     }
 
 substVar-fun = lookup
@@ -313,11 +318,7 @@ module Action
       ; natural = λ w δ → ≋[ ◼ 𝒫 ]-trans (◼-map bp .natural w (μₛ .apply δ)) (◼-map bp .apply-≋ (μₛ .natural w δ))
       }
     ; pres-≋  = λ p≋p' → proof-≈̇ λ δ → apply-≈̇ (◼-map-pres-≈̇ p≋p') (μₛ .apply δ)
-    --
-    -- TODO: revisit; what's goin on here?
-    --
-    ; natural = λ w bp → proof-≈̇ λ δ → (proof-≈̇ λ γ →
-        bp .apply-≋ (apply-≈̇ (apply-≈̇ (μₛ-trimSub-coh w) δ) γ))
+    ; natural = λ w bp → proof-≈̇ λ δ → (proof-≈̇ λ γ → bp .apply-≋ (apply-≈̇ (apply-≈̇ (μₛ-trimSub-coh w) δ) γ))
     }
 
   record SubLaws : Set₁ where
@@ -331,3 +332,38 @@ module Action
 
     -- think "substTm-pres-trans"
     μ-assoc : ◼-map μ ∘ μ ≈̇ ◼-δ ∘ μ {τ}
+
+  -- substitute a single variable with a term
+  -- subst₁ (t , u) is t[u]
+  subst₁ : (ε[ σ ] (𝒯 τ)) ×' 𝒯 σ →̇ 𝒯 τ
+  subst₁ {σ} {τ} = record
+    { fun     = subst₁-fun
+    ; pres-≋  = subst₁-pres-≋
+    ; natural = subst₁-natural
+    }
+    where
+    subst₁-fun : ((ε[ σ ] 𝒯 τ) ×' 𝒯 σ) ₀ Γ → 𝒯 τ ₀ Γ
+    subst₁-fun p = μ .apply (π₁' .apply p) .apply (⊢ₛ-refl `, π₂' .apply p)
+
+    opaque
+      subst₁-pres-≋ : Pres-≋ ((ε[ σ ] 𝒯 τ) ×' 𝒯 σ) (𝒯 τ) subst₁-fun
+      subst₁-pres-≋ p≋p' = apply-≈̇' (μ .apply-≋ (π₁' .apply-≋ p≋p')) (≈ₛ-refl `, π₂' .apply-≋ p≋p')
+
+      subst₁-natural : Natural ((ε[ σ ] 𝒯 τ) ×' 𝒯 σ) (𝒯 τ) subst₁-fun
+      subst₁-natural {Γ} {Γ'} i p = let open EqReasoning ≋[ 𝒯 τ  ]-setoid in begin
+        wk[ 𝒯 τ ] i (μ .apply (π₁' .apply p) .apply (⊢ₛ-refl `, _))
+          ≈⟨ μ .apply (π₁' .apply p) .natural i (_ `, _) ⟩
+        μ .apply (π₁' .apply p) .apply (wkSub i ⊢ₛ-refl `, _)
+          ≈⟨ μ .apply (π₁' .apply p) .apply-≋
+               (`,-pres-≈ₛ-left
+                 (≈ₛ-trans (wkSub-unit-right i) (≈ₛ-sym (trimSub-unit-right i)))
+                 _)
+           ⟩
+        μ .apply (π₁' .apply p) .apply (trimSub-fun i ⊢ₛ-refl `, _)
+          ≈˘⟨ μ .apply (π₁' .apply p) .apply-≋
+                (`,-pres-≈ₛ-left (≡-to-≈ₛ (trimSub-fun-drop-action i ⊢ₛ-refl)) _)
+            ⟩
+        μ .apply (π₁' .apply p) .apply (trimSub-fun (⊆-drop i) (⊢ₛ-refl `, _) `, _)
+          ≈⟨ apply-≈̇' (μ .natural (⊆-keep i) (π₁' .apply p)) ≈ₛ-refl ⟩
+        μ .apply (wk[ 𝒯 τ ] (⊆-keep i) (π₁' .apply p)) .apply (⊢ₛ-refl `, _)
+          ∎
